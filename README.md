@@ -1,2 +1,2 @@
 # DivRareGen
-Repository for Diverse Rare Sample Generation with GAN
+Repository for Diverse Rare Sample Generation with Pretrained GANs
