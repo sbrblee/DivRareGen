@@ -33,53 +33,9 @@ def set_seed(seed=0):
 	if deterministic:
 		torch.backends.cudnn.deterministic = True
 		torch.backends.cudnn.benchmark = False
-set_seed() # for reproducibility
+# set_seed()
 
-parser = argparse.ArgumentParser(description="Optimization")
-parser.add_argument("--zG_path", default="", type=str, help="initial zG path")
-
-parser.add_argument("--real_feature_path", default="", type=str, help="real feature path")
-
-parser.add_argument("--n_sample", default=10, type=int, help="number of samples to generate per initial point")
-parser.add_argument("--rand_scale", default=0.1, type=float, help="scaling coefficient of random noise")
-
-parser.add_argument("--img_size", default=1024, type=int, help="image size")
-parser.add_argument("--channel_multiplier", default=2, type=int, help="channel multiplier of the generator. config-f = 2, else = 1")
-parser.add_argument("--gen_ckpt", default="", type=str, help="stylegan2 ckpt path")
-
-parser.add_argument(
-    "--n_flow", default=32, type=int, help="number of flows in each block"
-)
-parser.add_argument("--n_block", default=4, type=int, help="number of blocks")
-parser.add_argument(
-    "--no_lu",
-    action="store_true",
-    help="use plain convolution instead of LU decomposed version",
-)
-parser.add_argument(
-    "--affine", action="store_false", help="use affine coupling instead of additive"
-)
-parser.add_argument("--n_group", default=4, type=int, help="number of groups")
-parser.add_argument("--nf_ckpt", default="", type=str, help="glow ckpt path")
-
-parser.add_argument("--scaler_path", default="./scaler/ffhq_minmax_scaler.pkl", type=str, help="scaler path")
-
-parser.add_argument("--epoch", default=200, type=int, help="number of total epoch")
-parser.add_argument("--lr", default=1e-2, type=float, help="lr")
-parser.add_argument("--schedule", action="store_true", help="use lr scheduler")
-
-parser.add_argument("--save_dir", default="./results/", type=str, help="result save directory")
-parser.add_argument("--save_interval", default=1, type=int, help="number of interval to save the results")
-
-parser.add_argument("--alpha", default=0.002, type=float)
-parser.add_argument("--eta", default=30.0, type=float)
-
-parser.add_argument("--dists_path", default="", type=str)
-parser.add_argument("--pair_k", default=10, type=int)
-parser.add_argument("--div_true", action="store_false")
-
-
-def loss_fn(x_initial, penalize_distance, pair_k = 10, alpha=0.002, eta=30.0, increase=False, div_true=False):
+def loss_fn(x_initial, penalize_distance, pair_k = 10, lambda2=0.002, lambda1=30.0, increase=False, divterm_approx=False):
     penalize_distance = torch.Tensor(penalize_distance).to(device)
     def loss_fn_helper(prob, xs, t):
         # rare objective
@@ -89,7 +45,7 @@ def loss_fn(x_initial, penalize_distance, pair_k = 10, alpha=0.002, eta=30.0, in
             loss = prob
         
         # diversity objective
-        if not div_true: # random {pair_k} pairs used
+        if divterm_approx: # random {pair_k} pairs used
             n_sample = xs.shape[0]
             xis = xs[torch.randint(0,n_sample,(pair_k,))]
             xjs = xs[torch.randint(0,n_sample,(pair_k,))]
@@ -99,18 +55,18 @@ def loss_fn(x_initial, penalize_distance, pair_k = 10, alpha=0.002, eta=30.0, in
             xij_dists = torch.triu(torch.cdist(xs.unsqueeze(0), xs.unsqueeze(0)).squeeze())
             xij_dists = xij_dists*xij_dists
             
-        loss = loss -alpha * torch.sum(xij_dists)
+        loss = loss -lambda2 * torch.sum(xij_dists)
         
         # regularization objective
         distance = F.pairwise_distance(x_initial, xs)
         distance = torch.max(distance, penalize_distance)
         distance_diff = distance - penalize_distance
-        loss = loss + eta * torch.sum(distance_diff*distance_diff, dim=-1)
+        loss = loss + lambda1 * torch.sum(distance_diff*distance_diff, dim=-1)
 
         return loss, distance_diff.detach().cpu().numpy()
     return loss_fn_helper
 
-def optimization(n_sample, zG_0, manifold, k=3, epoch=200, save_dir="./results/", save_name="", save_interval=10, lr=1e-2, increase=False, schedule=True, rand_scale=0.1, pair_k = 10, alpha=0.002, penalize_distance=100, eta=30.0, div_true=True):
+def optimization(n_sample, zG_0, manifold, k=3, epoch=200, save_dir="./results/", save_name="", save_interval=10, lr=1e-2, increase=False, schedule=True, rand_scale=0.1, pair_k = 10, lambda2=0.002, penalize_distance=100, lambda1=30.0, divterm_approx=True):
     zG_0 = zG_0.repeat(n_sample, 1)
     zG_0 = zG_0 + rand_scale * torch.randn(zG_0.shape).to(device)
     initial_latents = zG_0.detach().clone()
@@ -120,7 +76,6 @@ def optimization(n_sample, zG_0, manifold, k=3, epoch=200, save_dir="./results/"
     initial_x = vgg16.features(initial_x)
     initial_x = initial_x.view(-1, 7 * 7 * 512)
     initial_x = vgg16.classifier[:5](initial_x)
-    # initial_x = ((initial_x - scaler_min)/data_range).reshape((-1, 4096, 1, 1))
     initial_x = initial_x.detach().clone()
     
     initial_guess = torch.zeros(zG_0.shape, device=device).requires_grad_(True)
@@ -134,7 +89,7 @@ def optimization(n_sample, zG_0, manifold, k=3, epoch=200, save_dir="./results/"
     log_pxs = []
     rarities = []
     
-    L = loss_fn(initial_x, penalize_distance, alpha=alpha, eta=eta, increase=increase, pair_k=pair_k, div_true=div_true)
+    L = loss_fn(initial_x, penalize_distance, lambda2=lambda2, lambda1=lambda1, increase=increase, pair_k=pair_k, divterm_approx=divterm_approx)
  
     with tqdm(range(epoch+1)) as pbar:
         for i in pbar:
@@ -171,7 +126,7 @@ def optimization(n_sample, zG_0, manifold, k=3, epoch=200, save_dir="./results/"
                     if i%10 == 0:
                         utils.save_image(
                             img[j],
-                            save_dir + f"{save_name}_{alpha}_{eta}_{j}_{i}_{epoch}_optimized.png",
+                            save_dir + f"{save_name}_{lambda2}_{lambda1}_{j}_{i}_{epoch}_optimized.png",
                             nrow=1,
                             normalize=True,
                             value_range=(-1, 1)
@@ -181,7 +136,7 @@ def optimization(n_sample, zG_0, manifold, k=3, epoch=200, save_dir="./results/"
                             best_loss[j] = loss[j].item()
                             utils.save_image(
                                 img[j],
-                                save_dir + f"{save_name}_{alpha}_{eta}_{j}_best_optimized.png",
+                                save_dir + f"{save_name}_{lambda2}_{lambda1}_{j}_best_optimized.png",
                                 nrow=1,
                                 normalize=True,
                                 value_range=(-1, 1)
@@ -193,14 +148,62 @@ def optimization(n_sample, zG_0, manifold, k=3, epoch=200, save_dir="./results/"
 
 
 if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser(description="Optimization")
+    parser.add_argument("--zG_path", default="", type=str, help="initial zG path")
+
+    parser.add_argument("--real_feature_path", default="", type=str, help="real feature path")
+
+    parser.add_argument("--n_sample", default=10, type=int, help="number of samples to generate per initial point")
+    parser.add_argument("--rand_scale", default=0.1, type=float, help="scaling coefficient of random noise")
+
+    parser.add_argument("--img_size", default=1024, type=int, help="image size")
+    parser.add_argument(
+        "--channel_multiplier", default=2, type=int, help="channel multiplier of the generator. config-f = 2, else = 1"
+    )
+    parser.add_argument("--gen_ckpt", default="", type=str, help="stylegan2 ckpt path")
+
+    parser.add_argument(
+        "--n_flow", default=32, type=int, help="number of flows in each block"
+    )
+    parser.add_argument("--n_block", default=4, type=int, help="number of blocks")
+    parser.add_argument(
+        "--no_lu",
+        action="store_true",
+        help="use plain convolution instead of LU decomposed version",
+    )
+    parser.add_argument(
+        "--affine", action="store_false", help="use affine coupling instead of additive"
+    )
+    parser.add_argument("--n_group", default=4, type=int, help="number of groups")
+    parser.add_argument("--nf_ckpt", default="", type=str, help="glow ckpt path")
+
+    parser.add_argument("--scaler_path", default="./scaler/ffhq_minmax_scaler.pkl", type=str, help="scaler path")
+
+    parser.add_argument("--epoch", default=200, type=int, help="number of total epoch")
+    parser.add_argument("--lr", default=2*1e-2, type=float, help="lr")
+    parser.add_argument("--schedule", action="store_true", help="use lr scheduler")
+
+    parser.add_argument("--save_dir", default="./results/", type=str, help="result save directory")
+    parser.add_argument("--save_interval", default=1, type=int, help="number of interval to save the results")
+
+    parser.add_argument("--lambda1", default=30.0, type=float, help="similarity coefficient")
+    parser.add_argument("--lambda2", default=0.002, type=float, help="diversity coefficient")
+
+    parser.add_argument("--dists_path", default="", type=str, help="path to penalizing distances")
+    parser.add_argument("--divterm_approx", action="store_true", help="use partial sum in the diversity objective")
+    parser.add_argument(
+        "--pair_k", default=10, type=int, help="number of pairs to approximate the diversity objective when divterm_approx==True"
+    )
+    
     args = parser.parse_args()
     print(args)
     
-    # latent code of generator
-    zG = np.load(args.zG_path)[:1000]
+    # reference latent code
+    zG = np.load(args.zG_path)
     
     # penalizing distance
-    p_dists = np.load(args.dists_path)[:1000]
+    p_dists = np.load(args.dists_path)
     
     # real features and construct real kNN manifold
     real_features = np.load(args.real_feature_path)["feature"]
@@ -242,10 +245,8 @@ if __name__ == "__main__":
     resize_224 = partial(F.interpolate, size=(224, 224))
         
     # optimization
-    for i, idx in tqdm(enumerate(range(1000))):
-        set_seed(idx) # for reproducibility
-        
+    for i, idx in tqdm(enumerate(range(1000))):        
         zG_0 = torch.Tensor(zG[i]).to(device).requires_grad_(False)
         penalize_distance = [p_dists[idx]]
         
-        _, _ = optimization(args.n_sample, zG_0, manifold, k=3, epoch=args.epoch, save_dir=args.save_dir, save_name=f'{idx}', save_interval=args.save_interval, lr=args.lr, increase=False, schedule=args.schedule, rand_scale=args.rand_scale, alpha=args.alpha, eta=args.eta, penalize_distance=penalize_distance, pair_k=args.pair_k, div_true=args.div_true)
+        _, _ = optimization(args.n_sample, zG_0, manifold, k=3, epoch=args.epoch, save_dir=args.save_dir, save_name=f'{idx}', save_interval=args.save_interval, lr=args.lr, increase=False, schedule=args.schedule, rand_scale=args.rand_scale, lambda2=args.lambda2, lambda1=args.lambda1, penalize_distance=penalize_distance, pair_k=args.pair_k, divterm_approx=args.divterm_approx)
