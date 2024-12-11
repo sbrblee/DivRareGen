@@ -1,4 +1,4 @@
-# DivRareGen
+# Diverse Rare Sample Generation with Pretrained GANs
 Repository for Diverse Rare Sample Generation with Pretrained GANs (***AAAI 2025***)
 
 <img width="1675" alt="image" src="https://github.com/user-attachments/assets/8fa76f32-f63b-492d-96dd-19f82ee7a73b">
