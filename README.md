@@ -1,5 +1,8 @@
 # DivRareGen
-Repository for Diverse Rare Sample Generation with Pretrained GANs ***AAAI 2025***
+Repository for Diverse Rare Sample Generation with Pretrained GANs (***AAAI 2025***)
+[aaai_figure1.pdf](https://github.com/user-attachments/files/18091681/aaai_figure1.pdf)
+[aaai_figure2.pdf](https://github.com/user-attachments/files/18091682/aaai_figure2.pdf)
+
 
 ## Installation
 The environment was builded on [StyleGAN2-pytorch by rosinality](https://github.com/rosinality/stylegan2-pytorch).
