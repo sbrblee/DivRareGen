@@ -1,8 +1,11 @@
 # Diverse Rare Sample Generation with Pretrained GANs
 Repository for Diverse Rare Sample Generation with Pretrained GANs (***AAAI 2025***)
+Paper link: -
+Extended Paper (with Appendix) link: -
 
-<img width="1675" alt="image" src="https://github.com/user-attachments/assets/8fa76f32-f63b-492d-96dd-19f82ee7a73b">
-<img width="1657" alt="image" src="https://github.com/user-attachments/assets/e218c861-cd37-4322-954e-44d84511c1f9">
+<img width="1389" alt="image" src="https://github.com/user-attachments/assets/4a431030-fcad-4f73-894c-dddaf2df36e4" />
+<img width="1370" alt="image" src="https://github.com/user-attachments/assets/efaf4b1d-d1bf-47f2-abc9-e3818c00678b" />
+
 
 ## Installation
 The environment was builded on [StyleGAN2-pytorch by rosinality](https://github.com/rosinality/stylegan2-pytorch).
