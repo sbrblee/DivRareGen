@@ -11,6 +11,10 @@ Extended Paper (with Appendix) link: -
 
 ## Installation
 The environment was builded on [StyleGAN2-pytorch by rosinality](https://github.com/rosinality/stylegan2-pytorch).
+With CUDA12.1, the following command will download the corresponding docker image.
+```
+docker pull sbrblee/cuda12.1gcc6:1.0
+```
 
 ## Getting Started
 ### Feature Extraction
