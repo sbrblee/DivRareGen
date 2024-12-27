@@ -12,11 +12,6 @@ Extended Paper (with Appendix) link: -
 ## Installation
 The environment was builded on [StyleGAN2-pytorch by rosinality](https://github.com/rosinality/stylegan2-pytorch).
 
-With Anaconda, environment can be created as follows:
-```
-conda env create --file environment.yml 
-```
-
 ## Getting Started
 ### Feature Extraction
 ```
