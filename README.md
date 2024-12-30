@@ -1,9 +1,5 @@
 # Diverse Rare Sample Generation with Pretrained GANs
-Repository for Diverse Rare Sample Generation with Pretrained GANs (***AAAI 2025***)
-
-Paper link: -
-
-Extended Paper (with Appendix) link: -
+Repository for Diverse Rare Sample Generation with Pretrained GANs (***AAAI 2025***) [Paper] [[Extended Paper (with Appendix)](https://arxiv.org/abs/2412.19543)]
 
 <img width="1389" alt="image" src="https://github.com/user-attachments/assets/4a431030-fcad-4f73-894c-dddaf2df36e4" />
 <img width="1370" alt="image" src="https://github.com/user-attachments/assets/efaf4b1d-d1bf-47f2-abc9-e3818c00678b" />
